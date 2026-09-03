@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Quick Yantra Launcher</title></head>
+<body>
+<script>
+// Invisible startup launcher, alive for the whole Premiere session.
+//
+// The UI lives OUTSIDE Premiere in a native shell app (the Dagger/
+// Spell Book architecture): host/FxSearchShell on macOS (WKWebView) or
+// host/FxSearchShell.exe on Windows (WebView2). Both are borderless floating
+// windows with a global hotkey. The launcher's job is to be the shell's
+// hands inside Premiere: it spawns the shell and relays ExtendScript through
+// a file mailbox under host/bridge/ — the shell drops req-<id>.json, the
+// launcher runs the script and writes res-<id>.json back. Pure file IPC
+// (window.cep.fs): NO loopback socket, no network ports — nothing for a
+// firewall to prompt about on either platform.
+//
+// Windows fallback: when the shell exe has not been built, the legacy
+// CEP-panel + FxFrameless-watcher path is used (autolaunch the panel once,
+// hidden, which arms the watcher and its global hotkey).
+//
+// NOTE: this build is macOS-only (see README) — host/FxSearchShell.exe,
+// host/frameless.ps1 and host/FxFrameless.exe are not bundled here, so this
+// whole branch is reserved for a future Windows build. shellExists resolves
+// false on Windows (no .exe to stat), so we fall into this branch and open
+// the CEP panel as usual; the panel itself then tries to spawn the missing
+// frameless.ps1 / FxFrameless.exe to strip its title bar, which fails and is
+// caught and logged (see client/index.js), leaving a normal (non-frameless)
+// panel. Nothing crashes — Quick Yantra just doesn't have a Windows shell
+// experience yet.
+try {
+  var adobeCep = window.__adobe_cep__;
+  var root = decodeURI(adobeCep.getSystemPath("extension"))
+    .replace(/^file:\/\//, "")
+    .replace(/^\/([A-Za-z]:)/, "$1");
+  var PANEL_ID = "com.quickyantra.premiere.panel";
+  var isMac = navigator.platform.indexOf("Mac") === 0;
+
+  var fs = window.cep.fs;
+  var host = root + "/host";
+  var shellExe = host + (isMac ? "/FxSearchShell" : "/FxSearchShell.exe");
+
+  // Best-effort: if a keyboard-shortcut preset ships under <extension>/presets/,
+  // drop it into Premiere's keymap folder(s) so it shows up in Keyboard
+  // Shortcuts ▸ preset dropdown (the user still picks it once). Writes when
+  // MISSING and REFRESHES when our bundled copy differs (e.g. after installing
+  // a newer ZXP) — so the user no longer has to delete the old preset before
+  // reinstalling. We only ever touch our own "FX Search (...).kys"; customise
+  // into a DIFFERENT preset name to keep your edits (Premiere saves edits
+  // under a new name anyway).
+  //
+  // NOTE: no presets/ folder is currently bundled with this build, so this is
+  // a no-op today (the readFile below returns nothing and we return early).
+  // It activates automatically once a preset is added to <extension>/presets/
+  // in a future build — no other code changes needed. Any other failure is
+  // silent and non-fatal; the shortcut can still be assigned manually in
+  // Edit > Keyboard Shortcuts.
+  function installKeyboardPreset() {
+    try {
+      var name = isMac ? "FX Search (Mac).kys" : "FX Search (Win).kys";
+      var src = fs.readFile(root + "/presets/" + name);
+      if (!src || src.err !== 0 || !src.data) return; // not bundled in this build
+      var docs = decodeURI(adobeCep.getSystemPath("myDocuments"))
+        .replace(/^file:\/\//, "")
+        .replace(/^\/([A-Za-z]:)/, "$1");
+      var base = docs + "/Adobe/Premiere Pro";
+      var sub = isMac ? "Mac" : "Win";
+      var vers = fs.readdir(base);
+      if (!vers || vers.err !== 0 || !vers.data) return;
+      for (var i = 0; i < vers.data.length; i++) {
+        var verDir = base + "/" + vers.data[i];
+        var profs = fs.readdir(verDir);
+        if (!profs || profs.err !== 0 || !profs.data) continue;
+        for (var j = 0; j < profs.data.length; j++) {
+          if (profs.data[j].indexOf("Profile-") !== 0) continue;
+          var kdir = verDir + "/" + profs.data[j] + "/" + sub;
+          var dst = kdir + "/" + name;
+          var cur = fs.readFile(dst);
+          if (cur && cur.err === 0 && cur.data === src.data) continue; // already up to date
+          try { fs.makedir(kdir); } catch (e) { /* exists */ }
+          try { fs.writeFile(dst, src.data); } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) { /* no-op when presets/ isn't bundled; assign the shortcut manually instead */ }
+  }
+  try { installKeyboardPreset(); } catch (e) { /* ignore */ }
+
+  // Mutable mailbox dir: normally host/ itself, but on Windows a ZXP installed
+  // under Program Files is READ-ONLY — every write (heartbeat, bridge) would
+  // fail silently and FX Search would look dead ("ExtendScript not ready").
+  // Probe once; on failure relocate to %APPDATA%\FxSearchPremiere\host and tell
+  // the shell via --data so both sides agree on the mailbox location. Must use
+  // the SAME folder name the shell falls back to (FxSearchShell.cs).
+  var dataHost = host;
+  if (!isMac) {
+    try {
+      var probe = fs.writeFile(host + "/launcher-alive.txt", String(Date.now()));
+      if (!probe || probe.err !== 0) {
+        var userData = decodeURI(adobeCep.getSystemPath("userData"))
+          .replace(/^file:\/\//, "")
+          .replace(/^\/([A-Za-z]:)/, "$1");
+        dataHost = userData + "/FxSearchPremiere/host";
+        try { fs.makedir(userData + "/FxSearchPremiere"); } catch (e) { /* ignore */ }
+        try { fs.makedir(dataHost); } catch (e) { /* ignore */ }
+      }
+    } catch (e) { /* keep host */ }
+  }
+  var bridgeDir = dataHost + "/bridge";
+  var aliveFile = dataHost + "/launcher-alive.txt";
+
+  var shellExists = false;
+  try {
+    var st = fs.stat(shellExe);
+    shellExists = !!st && st.err === 0;
+  } catch (e) { /* treat as missing */ }
+
+  // Arm ExtendScript so the shell's evals find the FXS_* functions. Safe to
+  // run before the shell exists — it only loads the file into the engine.
+  // rename.jsx is a separate module (loaded by absolute path; $.fileName is
+  // unreliable inside the host) — load it right after so FXS_rename exists.
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/fxsearch.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/rename.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/AnchorTool.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/KeyframeTool.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/FolderArrange.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/TrimTool.jsx")', function () {}); } catch (e) {}
+
+  if (shellExists) {
+    // Native shell (single-instance; exits itself when Premiere quits). Pass
+    // the relocated data dir only when the probe failed — the normal spawn
+    // stays byte-identical on both platforms.
+    try {
+      if (dataHost !== host) {
+        window.cep.process.createProcess(shellExe, "--data", dataHost);
+      } else {
+        window.cep.process.createProcess(shellExe);
+      }
+    } catch (e) { /* ignore */ }
+
+    // Whole-file write that a reader can never catch half-done: write a temp
+    // sibling, then rename it onto the final name (atomic on the same volume).
+    var writeAtomic = function (path, data) {
+      try {
+        var tmp = path + ".tmp";
+        fs.writeFile(tmp, data);
+        try { fs.deleteFile(path); } catch (e) { /* may not exist */ }
+        fs.rename(tmp, path);
+      } catch (e) {
+        try { fs.writeFile(path, data); } catch (e2) { /* ignore */ }
+      }
+    };
+
+    var reply = function (id, result) {
+      writeAtomic(
+        bridgeDir + "/res-" + id + ".json",
+        JSON.stringify({ id: id, result: String(result) })
+      );
+    };
+
+    // Poll the mailbox: pick up req-<id>.json the shell dropped, run it, and
+    // write res-<id>.json back. Delete each request as soon as it is read so
+    // a stale file is never executed twice.
+    // The whole body is wrapped so a single unexpected throw (a bad readdir,
+    // etc.) can never kill the loop — setTimeout(pump) ALWAYS reschedules,
+    // otherwise the bridge would silently die for the rest of the session.
+    var pump = function () {
+      try {
+        try { fs.writeFile(aliveFile, String(Date.now())); } catch (e) { /* ignore */ }
+
+        var list = fs.readdir(bridgeDir);
+        if (list && list.err === 0 && list.data) {
+          for (var i = 0; i < list.data.length; i++) {
+            var name = list.data[i];
+            if (name.indexOf("req-") !== 0 || name.slice(-5) !== ".json") continue;
+            var reqPath = bridgeDir + "/" + name;
+            var r = fs.readFile(reqPath);
+            try { fs.deleteFile(reqPath); } catch (e) { /* ignore */ }
+            if (!r || r.err !== 0 || !r.data) continue;
+            var msg;
+            try { msg = JSON.parse(r.data); } catch (e) { continue; }
+            (function (id, script) {
+              try {
+                adobeCep.evalScript(script, function (res) { reply(id, res); });
+              } catch (e) {
+                reply(id, "EvalScript error.");
+              }
+            })(msg.id, msg.script);
+          }
+        }
+      } catch (e) { /* never let the pump die */ }
+      setTimeout(pump, 20);
+    };
+    // Give the shell a moment to create host/bridge before the first sweep
+    setTimeout(pump, 300);
+  } else if (!isMac) {
+    // Legacy Windows path (shell not built): open the CEP panel once,
+    // flagged as automatic so it hides itself immediately — that arms the
+    // FxFrameless watcher + its global hotkey for the whole session.
+    setTimeout(function () {
+      try {
+        fs.writeFile(host + "/autolaunch.txt", String(Date.now()));
+        adobeCep.requestOpenExtension(PANEL_ID, "");
+      } catch (e) { /* ignore */ }
+    }, 3000);
+  }
+} catch (e) { /* ignore */ }
+</script>
+</body>
+</html>
