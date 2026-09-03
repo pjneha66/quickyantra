@@ -1,6 +1,6 @@
 /*
- * FX Search — Anchor Tool module (v1.2). Loaded by absolute path alongside
- * fxsearch.jsx (shared helpers FXS__ok / FXS__err are already global).
+ * Quicky Antra — Anchor Tool module (v1.2). Loaded by absolute path alongside
+ * quickyantra.jsx (shared helpers FXS__ok / FXS__err are already global).
  *
  * Sets the Motion > Anchor Point of every selected video clip to one of the
  * nine grid positions, and COMPENSATES Position so the clip does not jump on

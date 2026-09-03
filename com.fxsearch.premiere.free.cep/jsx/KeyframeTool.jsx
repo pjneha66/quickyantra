@@ -1,6 +1,6 @@
 /*
- * FX Search — Keyframe Tools module (v1.2). Loaded by absolute path alongside
- * fxsearch.jsx (shared FXS__ok / FXS__err are already global).
+ * Quicky Antra — Keyframe Tools module (v1.2). Loaded by absolute path alongside
+ * quickyantra.jsx (shared FXS__ok / FXS__err are already global).
  *
  * Premiere ExtendScript does not expose keyframe ease handles, spatial
  * tangents, or which keyframes are selected — so a real motion-curve tool is

@@ -1,6 +1,6 @@
 /*
- * FX Search — Project Folder Arrangement (v1.2). Loaded by absolute path
- * alongside fxsearch.jsx (shared FXS__ok / FXS__err are already global).
+ * Quicky Antra — Project Folder Arrangement (v1.2). Loaded by absolute path
+ * alongside quickyantra.jsx (shared FXS__ok / FXS__err are already global).
  *
  * FXS_arrangeProject(): sweeps the top-level items in the Project panel and
  * moves each into a category bin by kind — Video / Image / Gif / Audio /

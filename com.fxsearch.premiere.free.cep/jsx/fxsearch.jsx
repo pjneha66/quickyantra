@@ -1,5 +1,5 @@
 /*
- * FX Search — ExtendScript (QE DOM) bridge for the CEP panel.
+ * Quicky Antra — ExtendScript (QE DOM) bridge for the CEP panel.
  * Loaded via ScriptPath in CSXS/manifest.xml. ES3 only — no JSON object here,
  * so responses are serialized by hand.
  */
