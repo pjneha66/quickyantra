@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    ExtensionBundleId="com.fxsearch.premiere.free.cep"
+    ExtensionBundleId="com.quickyantra.premiere.free.cep"
     ExtensionBundleVersion="1.0.0"
     ExtensionBundleName="Quicky Antra"
     Version="7.0">
   <ExtensionList>
-    <Extension Id="com.fxsearch.premiere.free.cep.panel" Version="1.0.0"/>
-    <Extension Id="com.fxsearch.premiere.free.cep.launcher" Version="1.0.0"/>
+    <Extension Id="com.quickyantra.premiere.free.cep.panel" Version="1.0.0"/>
+    <Extension Id="com.quickyantra.premiere.free.cep.launcher" Version="1.0.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -21,7 +21,7 @@
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.fxsearch.premiere.free.cep.panel">
+    <Extension Id="com.quickyantra.premiere.free.cep.panel">
       <DispatchInfo>
         <Resources>
           <MainPath>./client/index.html</MainPath>
@@ -66,7 +66,7 @@
         </UI>
       </DispatchInfo>
     </Extension>
-    <Extension Id="com.fxsearch.premiere.free.cep.launcher">
+    <Extension Id="com.quickyantra.premiere.free.cep.launcher">
       <DispatchInfo>
         <Resources>
           <MainPath>./launcher/index.html</MainPath>
