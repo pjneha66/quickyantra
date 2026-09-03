@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>FX Search Launcher</title></head>
+<head><meta charset="UTF-8"><title>Quicky Antra Launcher</title></head>
 <body>
 <script>
 // Invisible startup launcher, alive for the whole Premiere session.
@@ -23,7 +23,7 @@ try {
   var root = decodeURI(adobeCep.getSystemPath("extension"))
     .replace(/^file:\/\//, "")
     .replace(/^\/([A-Za-z]:)/, "$1");
-  var PANEL_ID = "com.fxsearch.premiere.free.cep.panel";
+  var PANEL_ID = "com.quickyantra.premiere.free.cep.panel";
   var isMac = navigator.platform.indexOf("Mac") === 0;
 
   var fs = window.cep.fs;
@@ -31,17 +31,17 @@ try {
   var shellExe = host + (isMac ? "/FxSearchShell" : "/FxSearchShell.exe");
 
   // Best-effort: drop the bundled keyboard-shortcut preset into Premiere's
-  // keymap folder(s) so "FX Search" shows up in Keyboard Shortcuts ▸ preset
+  // keymap folder(s) so "Quicky Antra" shows up in Keyboard Shortcuts ▸ preset
   // dropdown (the user still picks it once). Writes when MISSING and REFRESHES
   // when our bundled copy differs (e.g. after installing a newer ZXP) — so the
   // user no longer has to delete the old preset before reinstalling. We only
-  // ever touch our own "FX Search (...).kys"; customise into a DIFFERENT preset
+  // ever touch our own "Quicky Antra (...).kys"; customise into a DIFFERENT preset
   // name to keep your edits (Premiere saves edits under a new name anyway). Any
   // failure is silent: the same .kys ships under <extension>/presets/ for manual
   // copy.
   function installKeyboardPreset() {
     try {
-      var name = isMac ? "FX Search (Mac).kys" : "FX Search (Win).kys";
+      var name = isMac ? "Quicky Antra (Mac).kys" : "Quicky Antra (Win).kys";
       var src = fs.readFile(root + "/presets/" + name);
       if (!src || src.err !== 0 || !src.data) return; // not bundled (e.g. Win pending)
       var docs = decodeURI(adobeCep.getSystemPath("myDocuments"))
@@ -71,7 +71,7 @@ try {
 
   // Mutable mailbox dir: normally host/ itself, but on Windows a ZXP installed
   // under Program Files is READ-ONLY — every write (heartbeat, bridge) would
-  // fail silently and FX Search would look dead ("ExtendScript not ready").
+  // fail silently and Quicky Antra would look dead ("ExtendScript not ready").
   // Probe once; on failure relocate to %APPDATA%\FxSearchPremiere\host and tell
   // the shell via --data so both sides agree on the mailbox location. Must use
   // the SAME folder name the shell falls back to (FxSearchShell.cs).
@@ -102,7 +102,7 @@ try {
   // run before the shell exists — it only loads the file into the engine.
   // rename.jsx is a separate module (loaded by absolute path; $.fileName is
   // unreliable inside the host) — load it right after so FXS_rename exists.
-  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/fxsearch.jsx")', function () {}); } catch (e) {}
+  try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/quickyantra.jsx")', function () {}); } catch (e) {}
   try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/rename.jsx")', function () {}); } catch (e) {}
   try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/AnchorTool.jsx")', function () {}); } catch (e) {}
   try { adobeCep.evalScript('$.evalFile("' + root + '/jsx/KeyframeTool.jsx")', function () {}); } catch (e) {}

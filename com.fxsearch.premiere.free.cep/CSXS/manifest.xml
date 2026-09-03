@@ -2,7 +2,7 @@
 <ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     ExtensionBundleId="com.fxsearch.premiere.free.cep"
     ExtensionBundleVersion="1.0.0"
-    ExtensionBundleName="FX Search Free"
+    ExtensionBundleName="Quicky Antra"
     Version="7.0">
   <ExtensionList>
     <Extension Id="com.fxsearch.premiere.free.cep.panel" Version="1.0.0"/>
@@ -42,7 +42,7 @@
                appears in Window > Extensions so a keyboard shortcut can be
                assigned in Edit > Keyboard Shortcuts -->
           <Type>Modeless</Type>
-          <Menu>FX Search</Menu>
+          <Menu>Quicky Antra</Menu>
           <Geometry>
             <!-- Created at FULL size: macOS never resizes the window (any
                  resize stretches the last CEF frame = visible distortion),

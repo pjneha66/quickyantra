@@ -1,5 +1,5 @@
 /*
- * FX Search — Rename module (v1.2). Loaded by fxsearch.jsx via $.evalFile, so
+ * Quicky Antra — Rename module (v1.2). Loaded by quickyantra.jsx via $.evalFile, so
  * the shared helpers (FXS__ok / FXS__err / FXS__selectedProjectItems) are
  * already defined in the global scope by the time these run.
  *

@@ -1,6 +1,6 @@
 /*
- * FX Search — Trim / Move / Remove-Transition (v1.2). Loaded by absolute path
- * alongside fxsearch.jsx (shared FXS__ok / FXS__err already global).
+ * Quicky Antra — Trim / Move / Remove-Transition (v1.2). Loaded by absolute path
+ * alongside quickyantra.jsx (shared FXS__ok / FXS__err already global).
  *
  * trackItem exposes writable start/end (timeline) + inPoint/outPoint (source),
  * all Time objects with .ticks. projectItem.getInPoint()/getOutPoint() give the
