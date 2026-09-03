@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ExtensionManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    ExtensionBundleId="com.fxsearch.premiere.free.cep"
+    ExtensionBundleVersion="1.0.0"
+    ExtensionBundleName="FX Search Free"
+    Version="7.0">
+  <ExtensionList>
+    <Extension Id="com.fxsearch.premiere.free.cep.panel" Version="1.0.0"/>
+    <Extension Id="com.fxsearch.premiere.free.cep.launcher" Version="1.0.0"/>
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <!-- Premiere Pro 2020 (14.0) and later -->
+      <Host Name="PPRO" Version="[14.0,99.9]"/>
+    </HostList>
+    <LocaleList>
+      <Locale Code="All"/>
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0"/>
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.fxsearch.premiere.free.cep.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./client/index.html</MainPath>
+          <ScriptPath>./jsx/fxsearch.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--allow-file-access</Parameter>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <!-- Node needed to strip the OS title bar (host/frameless.ps1) -->
+            <Parameter>--enable-nodejs</Parameter>
+            <Parameter>--mixed-context</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <!-- Modeless floating window: can self-close (FX Console behavior),
+               appears in Window > Extensions so a keyboard shortcut can be
+               assigned in Edit > Keyboard Shortcuts -->
+          <Type>Modeless</Type>
+          <Menu>FX Search</Menu>
+          <Geometry>
+            <!-- Created at FULL size: macOS never resizes the window (any
+                 resize stretches the last CEF frame = visible distortion),
+                 it shows the whole 264x270 box from the start. On Windows
+                 the FxFrameless watcher collapses it to the search bar
+                 within ~50ms of the (hidden) autolaunch open, then sizes it
+                 to content as before. -->
+            <Size>
+              <Height>270</Height>
+              <Width>264</Width>
+            </Size>
+            <MinSize>
+              <Height>22</Height>
+              <Width>264</Width>
+            </MinSize>
+            <MaxSize>
+              <Height>500</Height>
+              <Width>264</Width>
+            </MaxSize>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+    <Extension Id="com.fxsearch.premiere.free.cep.launcher">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./launcher/index.html</MainPath>
+          <!-- No Node needed: the macOS bridge to the native shell
+               (host/FxSearchShell) is a file mailbox under host/bridge/,
+               driven entirely by the CEP built-ins window.cep.fs /
+               window.cep.process — no TCP socket, no networking capability. -->
+          <!-- The launcher is an invisible 1x1 page running the bridge pump
+               (heartbeat + req processing) every 20ms. Premiere sits in the
+               BACKGROUND exactly while FX Search is in use, so CEF would throttle
+               these timers to ~1/s and the bridge would stall ("ExtendScript not
+               ready", dropped applies). These flags keep it running full rate. -->
+          <CEFCommandLine>
+            <Parameter>--disable-background-timer-throttling</Parameter>
+            <Parameter>--disable-renderer-backgrounding</Parameter>
+            <Parameter>--disable-backgrounding-occluded-windows</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>false</AutoVisible>
+          <StartOn>
+            <Event>com.adobe.csxs.events.ApplicationActivate</Event>
+          </StartOn>
+        </Lifecycle>
+        <UI>
+          <!-- Invisible: no Menu entry, never shown -->
+          <Type>Custom</Type>
+          <Geometry>
+            <Size>
+              <Height>1</Height>
+              <Width>1</Width>
+            </Size>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
