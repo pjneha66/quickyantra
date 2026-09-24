@@ -2,6 +2,7 @@
 <html>
 <head><meta charset="UTF-8"><title>Quick Yantra Launcher</title></head>
 <body>
+<script src="kys-hotkey.js"></script>
 <script>
 // Invisible startup launcher, alive for the whole Premiere session.
 //
@@ -15,19 +16,9 @@
 // (window.cep.fs): NO loopback socket, no network ports — nothing for a
 // firewall to prompt about on either platform.
 //
-// Windows fallback: when the shell exe has not been built, the legacy
-// CEP-panel + FxFrameless-watcher path is used (autolaunch the panel once,
-// hidden, which arms the watcher and its global hotkey).
-//
-// NOTE: this build is macOS-only (see README) — host/FxSearchShell.exe,
-// host/frameless.ps1 and host/FxFrameless.exe are not bundled here, so this
-// whole branch is reserved for a future Windows build. shellExists resolves
-// false on Windows (no .exe to stat), so we fall into this branch and open
-// the CEP panel as usual; the panel itself then tries to spawn the missing
-// frameless.ps1 / FxFrameless.exe to strip its title bar, which fails and is
-// caught and logged (see client/index.js), leaving a normal (non-frameless)
-// panel. Nothing crashes — Quick Yantra just doesn't have a Windows shell
-// experience yet.
+// Windows: spawn host/FxSearchShell.exe (WebView2 + RegisterHotKey) when present.
+// If the exe is missing, do not autolaunch/hide the CEP panel — bind Quick Yantra
+// in Edit > Keyboard Shortcuts using the user's existing custom preset.
 try {
   var adobeCep = window.__adobe_cep__;
   var root = decodeURI(adobeCep.getSystemPath("extension"))
@@ -40,26 +31,29 @@ try {
   var host = root + "/host";
   var shellExe = host + (isMac ? "/FxSearchShell" : "/FxSearchShell.exe");
 
-  // Best-effort: if a keyboard-shortcut preset ships under <extension>/presets/,
-  // drop it into Premiere's keymap folder(s) so it shows up in Keyboard
-  // Shortcuts ▸ preset dropdown (the user still picks it once). Writes when
-  // MISSING and REFRESHES when our bundled copy differs (e.g. after installing
-  // a newer ZXP) — so the user no longer has to delete the old preset before
-  // reinstalling. We only ever touch our own "FX Search (...).kys"; customise
-  // into a DIFFERENT preset name to keep your edits (Premiere saves edits
-  // under a new name anyway).
-  //
-  // NOTE: no presets/ folder is currently bundled with this build, so this is
-  // a no-op today (the readFile below returns nothing and we return early).
-  // It activates automatically once a preset is added to <extension>/presets/
-  // in a future build — no other code changes needed. Any other failure is
-  // silent and non-fatal; the shortcut can still be assigned manually in
-  // Edit > Keyboard Shortcuts.
-  function installKeyboardPreset() {
+  // Read the user's Premiere keyboard preset (.kys) and copy THAT shortcut
+  // into host/hotkey.txt so the native shell matches Edit > Keyboard Shortcuts.
+  // READ ONLY: never write, overwrite, or install a .kys.
+  function kysText(result) {
+    if (!result || result.err !== 0 || result.data == null) return "";
     try {
-      var name = isMac ? "FX Search (Mac).kys" : "FX Search (Win).kys";
-      var src = fs.readFile(root + "/presets/" + name);
-      if (!src || src.err !== 0 || !src.data) return; // not bundled in this build
+      return window.KysHotkey.decodeKysBuffer(result.data);
+    } catch (e) {
+      return String(result.data);
+    }
+  }
+
+  function kysMtime(filePath) {
+    try {
+      var st = fs.stat(filePath);
+      if (st && st.err === 0 && st.data && st.data.mtime) return Number(st.data.mtime) || 0;
+    } catch (e) { /* ignore */ }
+    return 0;
+  }
+
+  function syncHotkeyFromUserPreset() {
+    try {
+      if (!window.KysHotkey) return;
       var docs = decodeURI(adobeCep.getSystemPath("myDocuments"))
         .replace(/^file:\/\//, "")
         .replace(/^\/([A-Za-z]:)/, "$1");
@@ -67,6 +61,8 @@ try {
       var sub = isMac ? "Mac" : "Win";
       var vers = fs.readdir(base);
       if (!vers || vers.err !== 0 || !vers.data) return;
+      var best = null;
+      var bestMtime = -1;
       for (var i = 0; i < vers.data.length; i++) {
         var verDir = base + "/" + vers.data[i];
         var profs = fs.readdir(verDir);
@@ -74,16 +70,29 @@ try {
         for (var j = 0; j < profs.data.length; j++) {
           if (profs.data[j].indexOf("Profile-") !== 0) continue;
           var kdir = verDir + "/" + profs.data[j] + "/" + sub;
-          var dst = kdir + "/" + name;
-          var cur = fs.readFile(dst);
-          if (cur && cur.err === 0 && cur.data === src.data) continue; // already up to date
-          try { fs.makedir(kdir); } catch (e) { /* exists */ }
-          try { fs.writeFile(dst, src.data); } catch (e) { /* ignore */ }
+          var files = fs.readdir(kdir);
+          if (!files || files.err !== 0 || !files.data) continue;
+          for (var k = 0; k < files.data.length; k++) {
+            var fname = files.data[k];
+            if (!/\.kys$/i.test(fname)) continue;
+            var srcPath = kdir + "/" + fname;
+            var raw = fs.readFile(srcPath);
+            var text = kysText(raw);
+            var parsed = window.KysHotkey.parseKysHotkey(text, { isMac: isMac });
+            if (!parsed) continue;
+            var mt = kysMtime(srcPath);
+            if (mt >= bestMtime) {
+              bestMtime = mt;
+              best = parsed;
+            }
+          }
         }
       }
-    } catch (e) { /* no-op when presets/ isn't bundled; assign the shortcut manually instead */ }
+      if (!best) return;
+      fs.writeFile(host + "/hotkey.txt", window.KysHotkey.formatHotkeyLine(best));
+    } catch (e) { /* keep host/hotkey.txt default */ }
   }
-  try { installKeyboardPreset(); } catch (e) { /* ignore */ }
+  try { syncHotkeyFromUserPreset(); } catch (e) { /* ignore */ }
 
   // Mutable mailbox dir: normally host/ itself, but on Windows a ZXP installed
   // under Program Files is READ-ONLY — every write (heartbeat, bridge) would
@@ -130,10 +139,21 @@ try {
     // the relocated data dir only when the probe failed — the normal spawn
     // stays byte-identical on both platforms.
     try {
-      if (dataHost !== host) {
-        window.cep.process.createProcess(shellExe, "--data", dataHost);
+      var spawnShell = function () {
+        try {
+          if (dataHost !== host) {
+            window.cep.process.createProcess(shellExe, "--data", dataHost);
+          } else {
+            window.cep.process.createProcess(shellExe);
+          }
+        } catch (e2) { /* ignore */ }
+      };
+      if (isMac) {
+        // chmod +x so a git 100644 copy of FxSearchShell still launches
+        try { window.cep.process.createProcess("/bin/chmod", "+x", shellExe); } catch (e) { /* ignore */ }
+        setTimeout(spawnShell, 200);
       } else {
-        window.cep.process.createProcess(shellExe);
+        spawnShell();
       }
     } catch (e) { /* ignore */ }
 
@@ -191,18 +211,10 @@ try {
       setTimeout(pump, 20);
     };
     // Give the shell a moment to create host/bridge before the first sweep
-    setTimeout(pump, 300);
-  } else if (!isMac) {
-    // Legacy Windows path (shell not built): open the CEP panel once,
-    // flagged as automatic so it hides itself immediately — that arms the
-    // FxFrameless watcher + its global hotkey for the whole session.
-    setTimeout(function () {
-      try {
-        fs.writeFile(host + "/autolaunch.txt", String(Date.now()));
-        adobeCep.requestOpenExtension(PANEL_ID, "");
-      } catch (e) { /* ignore */ }
-    }, 3000);
+     setTimeout(pump, 300);
   }
+  // No Windows autolaunch.txt hide. Without FxSearchShell.exe the CEP panel
+  // stays user-visible and opens from Premiere Keyboard Shortcuts.
 } catch (e) { /* ignore */ }
 </script>
 </body>

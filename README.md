@@ -1,15 +1,23 @@
 # Quick Yantra
 
-Premiere Pro CEP extension. Search effects, transitions, and commands from a floating panel (`Shift+Space` on macOS).
+Premiere Pro CEP extension. Search effects, transitions, and commands from a floating panel.
 
-## Install (macOS)
+## Install
 
-1. Copy the `QuickYantra` folder to `~/Library/Application Support/Adobe/CEP/extensions/`
-2. Enable unsigned CEP extensions for your Premiere install
-3. Restart Premiere Pro
-4. Open **Window > Extensions > Quick Yantra** once so the launcher starts
+Copy the `QuickYantra` folder:
 
-After that, `Shift+Space` is handled by the native shell.
+- macOS: `~/Library/Application Support/Adobe/CEP/extensions/`
+- Windows: `%APPDATA%\Adobe\CEP\extensions\`
+
+Enable unsigned CEP extensions, then restart Premiere Pro. Open **Window > Extensions > Quick Yantra** once so the launcher starts.
+
+## Hotkey
+
+**macOS:** the native shell (`host/FxSearchShell`) registers an OS-level hotkey. Default is `Shift+Space`. The launcher runs `chmod +x` on the shell before spawn (the binary is tracked executable in git).
+
+**Windows:** the native shell (`host/FxSearchShell.exe`) registers the same OS-level hotkey via `RegisterHotKey`. WebView2 (Edge) must be installed.
+
+If you already bound Quick Yantra in **Edit > Keyboard Shortcuts** inside your own custom Premiere preset, the launcher **reads** that `.kys` and copies the same combo into `host/hotkey.txt`. It never writes or overwrites your Premiere keymap.
 
 ## Search
 
@@ -27,3 +35,7 @@ Type `ripple` and press Enter. Selected clips are removed and the gap on each tr
 
 ```bash
 node QuickYantra/test/catalog.test.js
+node QuickYantra/test/hotkey.test.js
+```
+
+More install notes: `QuickYantra/README.txt`

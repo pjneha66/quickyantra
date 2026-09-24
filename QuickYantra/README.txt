@@ -4,19 +4,43 @@ Extension ID: com.quickyantra.premiere
 Reference-equivalent build using the same CEP panel + native macOS floating shell architecture.
 
 GLOBAL SEARCH:
-Shift + Space opens Quick Yantra from anywhere in Premiere.
+On macOS, Shift + Space opens Quick Yantra from anywhere in Premiere
+(native shell hotkey). If you already assigned Quick Yantra in
+Edit > Keyboard Shortcuts inside your own custom Premiere preset, the
+launcher reads that .kys and uses the same combo. It never writes your
+preset files.
+
+On Windows, host/FxSearchShell.exe registers the same OS-level hotkey
+(WebView2 / Edge required). If the exe cannot start, bind Quick Yantra in
+Edit > Keyboard Shortcuts using your existing custom preset.
+
 Type an effect/transition/command.
 Click a result to apply/execute it on the current Premiere selection.
 Enter applies the highlighted result.
 Esc closes the search.
 
-INSTALL (macOS):
-Copy the QuickYantra folder to:
-~/Library/Application Support/Adobe/CEP/extensions/
+Search includes the full command catalog (markers, trim/move, rename, anchor,
+arrange, save, bins, and more), plus Label and Clip keyboard-shortcut commands.
+Those Label/Clip shortcut rows were previously built and then discarded, so they
+never appeared in results.
+
+RIPPLE DELETE:
+Type "ripple" and press Enter. Selected clips are removed and the gap on each
+track is closed.
+
+INSTALL:
+macOS: copy QuickYantra to ~/Library/Application Support/Adobe/CEP/extensions/
+Windows: copy QuickYantra to %APPDATA%\Adobe\CEP\extensions\
 
 Then restart Premiere Pro.
 Open Window > Extensions > Quick Yantra once so Premiere starts the launcher.
-After that Shift+Space is handled by the native shell.
+
+On macOS the launcher chmod +x host/FxSearchShell before spawn, then the
+native shell registers the hotkey (default Shift+Space, or your Premiere
+preset shortcut if one is bound to Quick Yantra).
+
+On Windows the launcher spawns host/FxSearchShell.exe. WebView2 (Edge)
+must be installed. The launcher does not autolaunch or hide the CEP panel.
 
 IMPORTANT:
 This is an unsigned CEP extension. If Premiere blocks unsigned CEP extensions, enable CEP developer/unsigned-extension loading for your Premiere installation before launching it.
@@ -37,10 +61,8 @@ Known internal-only naming leftovers (cosmetic, non-breaking, no user-facing imp
 - The native shell binary (host/FxSearchShell) and its Swift symbol names still say
   "FxSearchShell" — it's a compiled binary from the reference build; renaming it requires
   rebuilding it from source, which isn't part of this package.
-- The optional keyboard-shortcut preset filenames the launcher looks for
-  (presets/"FX Search (Mac).kys" / "FX Search (Win).kys") also keep the old name. No such
-  presets/ folder or .kys file is actually bundled in this build, so this is a dormant,
-  no-op code path today (see launcher/index.html) — nothing to rename until a preset is
-  added.
+- The launcher reads the user's Premiere keyboard presets (Documents/Adobe/
+  Premiere Pro/.../*.kys) and copies a Quick Yantra binding into host/hotkey.txt.
+  It never writes or overwrites those .kys files.
 
 Delete any older QuickYantra installation before installing this build.
