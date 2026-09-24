@@ -268,6 +268,61 @@ function FXS__sequenceEndTicks(seq) {
   return maxStr;
 }
 
+/* Ripple-delete selected clips: drop each clip and close the gap on its track.
+ * Prefer TrackItem.remove(inRipple, inAlignToVideo) when the Premiere build
+ * exposes it; otherwise shift later clips left by the removed duration. */
+function FXS__rippleDelete(seq) {
+  var n = 0;
+  var groups = [seq.videoTracks, seq.audioTracks];
+  for (var g = 0; g < groups.length; g++) {
+    var tracks = groups[g];
+    if (!tracks) continue;
+    for (var t = 0; t < tracks.numTracks; t++) {
+      var clips = tracks[t].clips;
+      if (!clips) continue;
+      var sel = [];
+      for (var c = 0; c < clips.numItems; c++) {
+        if (clips[c].isSelected && clips[c].isSelected()) sel.push(clips[c]);
+      }
+      for (var i = sel.length - 1; i >= 0; i--) {
+        var clip = sel[i];
+        try {
+          if (typeof clip.remove === "function") {
+            clip.remove(true, true);
+            n++;
+            continue;
+          }
+        } catch (eRem) { /* fall through to manual ripple */ }
+        try {
+          var sT = Number(clip.start.ticks), eT = Number(clip.end.ticks);
+          var dur = eT - sT;
+          var later = [];
+          for (var k = 0; k < clips.numItems; k++) {
+            var other = clips[k];
+            if (other === clip) continue;
+            if (Number(other.start.ticks) >= eT) later.push(other);
+          }
+          later.sort(function (a, b) { return Number(a.start.ticks) - Number(b.start.ticks); });
+          try { clip.remove(false, true); } catch (eDel) {
+            try { clip.remove(); } catch (eDel2) { continue; }
+          }
+          for (var li = 0; li < later.length; li++) {
+            try {
+              var lc = later[li];
+              var ns = Number(lc.start.ticks) - dur;
+              var ne = Number(lc.end.ticks) - dur;
+              var st = lc.start; st.ticks = String(Math.round(ns)); lc.start = st;
+              var en = lc.end; en.ticks = String(Math.round(ne)); lc.end = en;
+            } catch (eShift) { /* skip this neighbour */ }
+          }
+          n++;
+        } catch (eMan) { /* skip this clip */ }
+      }
+    }
+  }
+  return n;
+}
+
 /* The project item backing the first selected clip (for Reveal in Explorer). */
 function FXS__firstSelectedProjectItem(seq) {
   var groups = [seq.videoTracks, seq.audioTracks];
@@ -440,6 +495,9 @@ function FXS_runCommand(commandId, arg, target) {
         if (!picked) return FXS__err("Link cancelled");
         lpi.changeMediaPath(picked.fsName);
         return FXS__ok(1);
+      case "clip.rippleDelete":
+        var nRip = FXS__rippleDelete(seq);
+        return nRip ? FXS__ok(nRip) : FXS__err("No clips selected");
       default:
         return FXS__err('Unknown command: "' + commandId + '"');
     }
